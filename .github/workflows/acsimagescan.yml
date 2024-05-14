@@ -1,0 +1,30 @@
+###################################
+### external configs:
+###   ROX_API_TOKEN - security token needed for central authentication
+###   ROX_ENDPOINT  - roxctl central endpoint (host:port)
+###   TARGET_CLUSTER - 
+#
+name: ACS image scan
+on:
+  workflow_dispatch:
+jobs:
+  ImageScan:
+    name: RoxctlImageScan
+    #runs-on: ubuntu-22.04
+    environment: smbc-dev
+    needs: [archivebuild, sonarqube, imagebuild]
+    #runs-on: ubuntu-latest
+    runs-on: [self-hosted, image-scan]
+    steps:
+      - name: roxctl central login
+        env:
+          ROX_API_TOKEN: "${{ secrets.ROX_API_TOKEN }}"
+          ROX_ENDPOINT: "{{ secret.ROX_ENDPOINT }}"
+        run: |
+          echo "roxctl api token: ${{ env.ROX_API_TOKEN }}"
+          echo "roxctl endpoint: ${{ env.ROX_ENDPOINT }}"
+          echo "Logging into roxctl centrol..."
+          roxctl central login
+
+
+

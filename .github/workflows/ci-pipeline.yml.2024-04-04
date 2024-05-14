@@ -1,0 +1,191 @@
+name: Continuous Integration Pipeline
+on:
+  push:
+    branches:
+      - main # the name of your main branch
+  workflow_dispatch:
+    inputs:
+      REPOSITORY_URL:
+        required: true
+        type: string
+      IMAGE_NAME:
+        required: true
+        type: string
+      IMAGE_TAG:
+        required: true
+        type: string
+jobs:
+  archivebuild:
+    name: BuildJavaArchive
+    environment: smbc-dev
+    runs-on: [self-hosted, java-build]
+#   outputs:
+#     UPLOAD_WORKFLOW_ID: "${{ github.event.workflow_run.id }}"
+    steps:
+#     - name: Print Workflow id
+#       env:
+#         WORKFLOW_ID: "${{ github.event.workflow_run.id }}"
+#       run: |
+#         echo workflow id: "${ env.WORKFLOW_ID }"
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Set up JDK 17
+        uses: actions/setup-java@v1
+        with:
+          java-version: 17
+      - name: Cache SonarQube packages
+        uses: actions/cache@v1
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Cache Maven packages
+        uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Build and analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+#       run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+        run: mvn -DskipTests=true package
+      - name: Upload Maven Env
+        uses: actions/upload-artifact@v3
+        with:
+          name: maven-artifacts
+          path: .
+
+  sonarqube:
+    name: SonarQubeTrigger
+    environment: smbc-dev
+    needs: archivebuild
+    runs-on: ubuntu-latest
+#   runs-on: [self-hosted, java-runtime]
+    steps:
+    - name: Checking out
+      uses: actions/checkout@master
+      with:
+        # Disabling shallow clone is recommended for improving relevancy of reporting
+        fetch-depth: 0
+    - name: Print secrets
+      shell: bash
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # Generate a token on SonarQube, add it to the secrets of this repo with the name SONAR_TOKEN (Settings > Secrets > Actions > add new repository secret)
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}   # add the URL of your instance to the secrets of this repo with the name SONAR_HOST_URL (Settings > Secrets > Actions > add new repository secret)
+      run:  |
+        echo host: "$SONAR_HOST_URL"
+        echo token: "$SONAR_TOKEN"
+#       echo run-id: "${{ github.event.workflow_run.id }}"
+           
+      # Download workspace from archive build
+    - name: Synchronize workspace
+      uses: actions/download-artifact@v3
+      with:
+        name: maven-artifacts
+#       run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ secrets.GH_PAT }}
+        path: .
+          
+    - name: Analyze with SonarQube
+
+      # You can pin the exact commit or the version.
+      # uses: SonarSource/sonarqube-scan-action@v1.1.0
+      # uses: SonarSource/sonarqube-scan-action@7295e71c9583053f5bf40e9d4068a0c974603ec8
+      uses: SonarSource/sonarqube-scan-action@v2.0.1
+      env:
+        GITHUB_TOKEN: "${{ secrets.GH_PAT }}"  # Needed to get PR information
+        SONAR_TOKEN: "${{ secrets.SONAR_TOKEN }}"   # Generate a token on SonarQube, add it to the secrets of this repo with the name SONAR_TOKEN (Settings > Secrets > Actions > add new repository secret)
+        SONAR_HOST_URL: "${{ secrets.SONAR_HOST_URL }}"   # add the URL of your instance to the secrets of this repo with the name SONAR_HOST_URL (Settings > Secrets > Actions > add new repository secret)
+      with:
+        # Additional arguments for the sonarcloud scanner
+        args:
+          # Unique key of your project. You can find it in SonarQube > [my project] > Project Information (top-right menu)
+          # mandatory
+          -Dsonar.projectKey=smbc-demo
+          -Dsonar.exclusions=src/java/test/**
+          -Dsonar.sources=src/main/java
+          -Dsonar.tests=src/test
+          -Dsonar.test.inclusions=src/test/**/*
+          # Comma-separated paths to directories containing main source files.
+          #-Dsonar.sources= # optional, default is project base directory
+          # When you need the analysis to take place in a directory other than the one from which it was launched
+          #-Dsonar.projectBaseDir= # optional, default is .
+          # Comma-separated paths to directories containing test source files.
+          #-Dsonar.tests= # optional. For more info about Code Coverage, please refer to https://docs.sonarcloud.io/enriching/test-coverage/overview/
+          # Adds more detail to both client and server-side analysis logs, activating DEBUG mode for the scanner, and adding client-side environment variables and system properties to the server-side log of analysis report processing.
+          #-Dsonar.verbose= # optional, default is false
+
+#   - name: SonarQube Setup Java
+#     uses: actions/setup-java@v4
+#     with:
+#       distribution: 'temurin' # See 'Supported distributions' for available options
+#       java-version: '11'
+#   - name: SonarQube Scan
+#     uses: kitabisa/sonarqube-action@v1.2.0
+#       #     env:
+        #ONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        #ONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+#     with:
+#       host: ${{ secrets.SONAR_HOST_URL }}
+#       login: ${{ secrets.SONAR_TOKEN }}
+#       projectKey: "smbc-demo"
+#env:
+#  IMAGE_NAME: "hello-world"
+
+  imagebuild:
+    name: BuildOCIImage
+    #runs-on: ubuntu-22.04
+    #environment: ${{ inputs.ENVIRONMENT }}
+    environment: smbc-dev
+    needs: [archivebuild, sonarqube]
+      #environment: smbc-dev
+    #runs-on: ubuntu-latest
+    runs-on: [self-hosted, buildah]
+#   if: ${{ github.event.workflow_run.conclusion == 'success' }}
+#   strategy:
+#     fail-fast: false
+#     matrix:
+#       install_latest: [ true, false ]
+
+    steps:
+
+      # Download workspace from archive build
+      - name: Synchronize workspace
+        uses: actions/download-artifact@v3
+        with:
+          name: maven-artifacts
+          github-token: ${{ secrets.GH_PAT }}
+
+      # Checkout buildah action github repository
+      - name: Checkout Buildah action
+        uses: actions/checkout@v4
+        with:
+          path: "buildah-build"
+
+      # Build image using Buildah action
+      - name: Build Image
+        id: build_image
+        env:
+          image: ${{ inputs.IMAGE_NAME }}
+          tag: ${{ inputs.IMAGE_TAG }}
+          repository: ${{ inputs.REPOSITORY_URL }}
+        run: echo "this is a test"
+      - name: Echo Outputs
+        env:
+          image: ${{ inputs.IMAGE_NAME }}
+          tag: ${{ inputs.IMAGE_TAG }}
+          repository: ${{ inputs.REPOSITORY_URL }}
+        run: |
+#         echo "Image: ${{ steps.build_image.outputs.image }}"
+#         echo "Tags: ${{ steps.build_image.outputs.tags }}"
+#         echo "Tagged Image: ${{ steps.build_image.outputs.image-with-tag }}"
+          echo "Image: ${{ env.image }}"
+          echo "Tags: ${{ env.tag }}"
+          echo "Repository: ${{ env.repository }}"
+
+      # Check if image is build
+      - name: Check images created
+        run: buildah images | grep '${{ inputs.IMAGE_NAME }}'
