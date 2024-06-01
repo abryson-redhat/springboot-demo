@@ -20,9 +20,9 @@ GitHub workflows are used for CI and CD to the DEV environment.  The ci.yml work
 
 
 > **CI tree**
-.github/
-└── workflows
-    ├── ci.yml
+.github/\
+└── workflows\
+    ├── ci.yml\
     └── sayhello.yml
 
 
