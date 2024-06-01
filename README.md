@@ -37,10 +37,19 @@ GitHub workflows are used for CI and CD to the DEV environment.  The ci.yml work
 ```
 
 ### Testing
+
+#### Unit tests
 The application has a single unit test.  The execute the test locally...
 ```bash
   mvn test
 ```
+
+#### Starting the application locally
+```bash
+  mvn -DskipTests=true spring-boot:run
+```
+
+The will will bootstrap the applicationi which will cause the RestController to listen locally on port 8080.
 
 ## Deploying
 This project uses Helm for package management.  The Helm Chart is located in [a separate manifest repository](https://github.com/abryson-redhat/argocd-demo/tree/helm/gitops/manifests/busunit1/integration/teams/appteam1/apps/springboot-demo).
