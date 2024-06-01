@@ -1,9 +1,0 @@
-# will trigger ArgoCD sync by updating DEV deployment manifest (image tag)
-# inputs:
-#   image, image tag
-# secrets:
-#   argocd user, token, url(s)
-name: Trigger CD
-on:
-  workflow_dispatch:
-  workflow_call:
