@@ -11,7 +11,7 @@
 
 
 ## Overview
-This is a very simnple Spring Boot Rest Controller application.  It uses Maven for Java builds and has a Containerfile that constructs an image using the OpenJDK 17 builder image.
+This is a very simple Spring Boot Rest Controller application.  It uses Maven for Java builds and has a Containerfile that constructs an image using the OpenJDK 17 builder image.
 
 It implements a stateless `helloworld` service.
 
