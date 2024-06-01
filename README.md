@@ -43,11 +43,15 @@ The application has a single unit test.  The execute the test locally...
 ```
 
 ## Deploying
-This project uses Helm for package management.  The Helm Chart is located in [a separate manifest repository]().
+This project uses Helm for package management.  The Helm Chart is located in [a separate manifest repository](https://github.com/abryson-redhat/argocd-demo/tree/helm/gitops/manifests/busunit1/integration/teams/appteam1/apps/springboot-demo).
+
+To trigger a deployment, the `ci.yml` workflow executes a **deploytodev** job that updates a `values.yaml` with an updated image pull spec.
+
+This will cause ArgoCD to update the OpenShift deployment with a sync operation.
 
 
 ##  CI
-
+CI is implemented via a [GitHub Workflow](https://docs.github.com/en/actions/using-workflows).
 
 ## CD
 
