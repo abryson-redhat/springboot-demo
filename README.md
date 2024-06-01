@@ -19,7 +19,7 @@ It implements a stateless `helloworld` service.
 GitHub workflows are used for CI and CD to the DEV environment.  The ci.yml workflow is triggered on push events to the repository.
 
 
-> **CI tree**
+> **CI tree**\
 .github/\
 └── workflows\
     ├── ci.yml\
